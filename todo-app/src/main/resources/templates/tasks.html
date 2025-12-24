@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ToDo Application</title>
+
+    <!-- Bootstrap (keep) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
+          crossorigin="anonymous">
+
+    <style>
+        :root{
+            --bg: #f7f8fb;
+            --text: #0f172a;
+            --muted: #6b7280;
+
+            --surface: rgba(255,255,255,.72);
+            --surface-strong: rgba(255,255,255,.92);
+            --border: rgba(15, 23, 42, .10);
+
+            --primary: #3b82f6;
+            --primary2: #06b6d4;
+            --danger: #ef4444;
+            --success: #22c55e;
+
+            --shadow: 0 26px 80px rgba(0,0,0,.12);
+            --shadowSoft: 0 18px 50px rgba(0,0,0,.10);
+        }
+
+        body{
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body.dark{
+            --bg: #0a1020;
+            --text: #e5e7eb;
+            --muted: #9ca3af;
+
+            --surface: rgba(18, 22, 33, .56);
+            --surface-strong: rgba(18, 22, 33, .80);
+            --border: rgba(255,255,255,.10);
+
+            --shadow: 0 30px 100px rgba(0,0,0,.55);
+            --shadowSoft: 0 18px 60px rgba(0,0,0,.45);
+        }
+
+        /* ---------- Background ---------- */
+        .page-bg{
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .page-bg::before{
+            content: "";
+            position: absolute;
+            inset: -18%;
+            background:
+                    radial-gradient(1200px 760px at 10% 0%, rgba(96,165,250,.22), transparent 55%),
+                    radial-gradient(900px 650px at 92% 18%, rgba(6,182,212,.18), transparent 55%),
+                    radial-gradient(1100px 780px at 25% 95%, rgba(34,197,94,.14), transparent 60%),
+                    radial-gradient(900px 600px at 60% 60%, rgba(168,85,247,.08), transparent 55%),
+                    linear-gradient(135deg, rgba(255,255,255,.45), rgba(255,255,255,0));
+            filter: saturate(1.08);
+            transform: translate3d(0,0,0);
+            animation: bgWaves 16s ease-in-out infinite alternate;
+        }
+
+        body.dark .page-bg::before{
+            background:
+                    radial-gradient(1200px 760px at 10% 0%, rgba(96,165,250,.18), transparent 55%),
+                    radial-gradient(900px 650px at 92% 18%, rgba(6,182,212,.16), transparent 55%),
+                    radial-gradient(1100px 780px at 25% 95%, rgba(34,197,94,.10), transparent 60%),
+                    radial-gradient(900px 600px at 60% 60%, rgba(168,85,247,.09), transparent 55%),
+                    linear-gradient(135deg, rgba(255,255,255,.07), rgba(255,255,255,0));
+        }
+
+        @keyframes bgWaves{
+            0%   { transform: translate3d(-1.5%, -1.2%, 0) rotate(-.6deg) scale(1.02); }
+            50%  { transform: translate3d( 1.8%,  1.2%, 0) rotate( .6deg) scale(1.03); }
+            100% { transform: translate3d(-1.0%,  1.6%, 0) rotate(-.4deg) scale(1.02); }
+        }
+
+        .grid-layer{
+            position: absolute;
+            inset: -40%;
+            background:
+                    linear-gradient(rgba(255,255,255,.10) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255,255,255,.10) 1px, transparent 1px);
+            background-size: 60px 60px;
+            opacity: .20;
+            filter: blur(.2px);
+            animation: gridDrift 28s linear infinite;
+            transform: translate3d(0,0,0);
+        }
+        body.dark .grid-layer{ opacity: .10; }
+
+        @keyframes gridDrift{
+            from { transform: translate3d(0,0,0) rotate(0.2deg); }
+            to   { transform: translate3d(140px, 90px, 0) rotate(0.2deg); }
+        }
+
+        .blob{
+            position:absolute;
+            width: 520px; height: 520px;
+            border-radius: 50%;
+            filter: blur(46px);
+            opacity: .55;
+            transform: translate3d(0,0,0);
+            animation: blobFloat 12s ease-in-out infinite;
+        }
+        .b1{ left:-170px; top: 18%; background: rgba(59,130,246,.32); animation-duration: 14s; }
+        .b2{ right:-220px; top: 10%; background: rgba(6,182,212,.26); animation-duration: 17s; }
+        .b3{ left: 18%; bottom:-240px; background: rgba(34,197,94,.16); animation-duration: 19s; }
+        .b4{ right: 18%; bottom:-260px; background: rgba(168,85,247,.12); animation-duration: 21s; }
+
+        @keyframes blobFloat{
+            0%   { transform: translate3d(0,0,0) scale(1); }
+            50%  { transform: translate3d(18px,-18px,0) scale(1.05); }
+            100% { transform: translate3d(0,0,0) scale(1); }
+        }
+
+        .noise{
+            position:absolute;
+            inset:0;
+            opacity:.08;
+            mix-blend-mode: soft-light;
+            background-image:
+                    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.45'/%3E%3C/svg%3E");
+            background-size: 240px 240px;
+        }
+        body.dark .noise{ opacity: .10; }
+
+        /* ---------- FLOAT DECOR (moved outward + behind) ---------- */
+        .float-card{
+            position: absolute;
+            width: 300px;
+            border-radius: 18px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,.42);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: var(--shadowSoft);
+            overflow: hidden;
+            opacity: .55;
+
+            /* IMPORTANT: keep background items behind app */
+            z-index: 0;
+
+            transform: translate3d(0,0,0);
+            will-change: transform;
+            pointer-events: none;
+        }
+        body.dark .float-card{
+            background: rgba(18,22,33,.46);
+            opacity: .50;
+        }
+
+        .float-head{
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg,
+            color-mix(in srgb, var(--primary) 20%, transparent),
+            color-mix(in srgb, var(--primary2) 16%, transparent)
+            );
+        }
+        .dot{ width: 9px; height: 9px; border-radius: 50%; background: color-mix(in srgb, var(--text) 22%, transparent); opacity: .55; }
+        .float-title{
+            margin-left: auto;
+            font-weight: 900;
+            letter-spacing: .12em;
+            font-size: .78rem;
+            color: var(--text);
+            opacity: .85;
+        }
+        .float-body{ padding: 12px; }
+
+        /* NEW positions: farther out so center card never covers them */
+        .cal-float{ left: 1.2%; top: 22%; width: 320px; }
+        .girl-float{ right: 1.2%; top: 18%; width: 380px; }
+        .week-float{ right: 3.5%; bottom: 8%; width: 300px; }
+
+        .cal-float{ animation: cardDriftA 18s ease-in-out infinite; }
+        .girl-float{ animation: cardDriftB 22s ease-in-out infinite; }
+        .week-float{ animation: cardDriftC 20s ease-in-out infinite; }
+
+        @keyframes cardDriftA{
+            0%{ transform: translate3d(0,0,0) rotate(-.6deg); }
+            50%{ transform: translate3d(0,-14px,0) rotate(.5deg); }
+            100%{ transform: translate3d(0,0,0) rotate(-.6deg); }
+        }
+        @keyframes cardDriftB{
+            0%{ transform: translate3d(0,0,0) rotate(.5deg); }
+            50%{ transform: translate3d(0,-18px,0) rotate(-.4deg); }
+            100%{ transform: translate3d(0,0,0) rotate(.5deg); }
+        }
+        @keyframes cardDriftC{
+            0%{ transform: translate3d(0,0,0) rotate(-.4deg); }
+            50%{ transform: translate3d(0,-12px,0) rotate(.4deg); }
+            100%{ transform: translate3d(0,0,0) rotate(-.4deg); }
+        }
+
+        /* Hide floating decor on smaller screens so it doesn't clash */
+        @media (max-width: 1200px){
+            .girl-float{ display:none; }
+            .cal-float{ display:none; }
+            .week-float{ display:none; }
+        }
+
+        /* ---------- Calendar UI ---------- */
+        .cal-top{ display:flex; align-items:center; justify-content: space-between; margin-bottom: 10px; gap: 10px; }
+        .cal-month{ font-weight: 900; font-size: .95rem; opacity: .92; white-space: nowrap; }
+        .cal-meta{ font-size: .78rem; color: var(--muted); font-weight: 800; }
+        .badge-soft{
+            font-size: .78rem;
+            border-radius: 999px;
+            padding: .35rem .6rem;
+            border: 1px solid var(--border);
+            background: color-mix(in srgb, var(--surface-strong) 70%, transparent);
+            color: var(--muted);
+            font-weight: 800;
+        }
+        .cal-grid{
+            display:grid;
+            grid-template-columns: repeat(7,1fr);
+            gap: 6px;
+            font-size: .78rem;
+            user-select: none;
+        }
+        .cal-grid .dow{
+            text-align:center;
+            font-weight: 900;
+            opacity: .55;
+            padding: 4px 0;
+        }
+        .cal-grid .cell{
+            text-align:center;
+            padding: 7px 0;
+            border-radius: 10px;
+            background: color-mix(in srgb, var(--surface-strong) 62%, transparent);
+            border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+            font-weight: 900;
+            opacity: .92;
+        }
+        .cal-grid .muted{ opacity:.42; }
+        .cal-grid .today{
+            background: linear-gradient(135deg, var(--primary), var(--primary2));
+            color:#fff; border:none;
+            box-shadow: 0 12px 18px rgba(59,130,246,.18);
+        }
+
+        /* ---------- Week UI ---------- */
+        .week-row{ display:flex; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+        .wday{
+            width: 30px; height: 30px; display:grid; place-items:center;
+            border-radius: 10px;
+            background: color-mix(in srgb, var(--surface-strong) 62%, transparent);
+            border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+            font-weight: 900;
+            opacity: .9;
+        }
+        .wday.active{
+            background: linear-gradient(135deg, var(--primary), var(--primary2));
+            color:#fff; border:none;
+        }
+        .progress-bar{
+            height: 10px; border-radius: 999px;
+            background: color-mix(in srgb, var(--surface-strong) 62%, transparent);
+            border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+            overflow:hidden;
+        }
+        .progress-fill{
+            height:100%;
+            width:0%;
+            background: linear-gradient(135deg, var(--success), var(--primary2));
+            transition: width .7s ease;
+        }
+        .progress-label{
+            display:flex; justify-content: space-between;
+            margin-top: 8px;
+            font-size: .78rem;
+            color: var(--muted);
+            font-weight: 900;
+        }
+
+        /* ---------- Girl drawing ---------- */
+        .girl-wrap{ padding: 0; }
+        .write-path{
+            stroke-dasharray: 240;
+            stroke-dashoffset: 240;
+            animation: write 3.6s ease-in-out infinite;
+        }
+        @keyframes write{
+            0%   { stroke-dashoffset: 240; opacity: .85; }
+            55%  { stroke-dashoffset: 0;   opacity: 1; }
+            100% { stroke-dashoffset: -240; opacity: .80; }
+        }
+
+        /* ---------- App UI ---------- */
+        .app-wrap{ position: relative; z-index: 2; }
+
+        .glass-card{
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 22px;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }
+
+        .brand{
+            font-weight: 900;
+            letter-spacing: -.03em;
+            line-height: 1.05;
+            margin: 0;
+        }
+        .subtitle{
+            color: var(--muted);
+            font-weight: 650;
+            margin-top: .35rem;
+        }
+
+        .theme-toggle{
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            padding: .55rem .85rem;
+            display: inline-flex;
+            gap: .55rem;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            transition: transform .18s ease, filter .18s ease;
+        }
+        .theme-toggle:hover{ transform: translateY(-1px); filter: brightness(1.03); }
+        .toggle-dot{
+            width: 10px; height: 10px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--primary2));
+            box-shadow: 0 8px 18px rgba(59,130,246,.22);
+        }
+
+        .task-input{
+            border-radius: 16px !important;
+            border: 1px solid var(--border) !important;
+            background: var(--surface-strong) !important;
+            transition: transform .18s ease, box-shadow .18s ease;
+        }
+        body.dark .task-input{ color: var(--text); }
+        .task-input:focus{
+            transform: translateY(-1px);
+            box-shadow: 0 14px 28px rgba(59,130,246,.18);
+        }
+
+        .btn-fancy{
+            border-radius: 16px;
+            border: 0;
+            background: linear-gradient(135deg, var(--primary), var(--primary2));
+            box-shadow: 0 14px 28px rgba(59,130,246,.22);
+            transition: transform .18s ease, filter .18s ease;
+        }
+        .btn-fancy:hover{ transform: translateY(-1px); filter: brightness(1.03); }
+        .btn-fancy:active{ transform: translateY(0); }
+
+        .badge-line{
+            display:flex;
+            justify-content: space-between;
+            align-items:center;
+            gap: 12px;
+            margin-top: 14px;
+        }
+
+        .task-card{
+            border-radius: 18px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            overflow: hidden;
+            transform: translateZ(0);
+            transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+            animation: popIn .35s ease both;
+        }
+        @keyframes popIn{
+            from{ opacity: 0; transform: translateY(8px) scale(.985); }
+            to{ opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .task-card:hover{
+            transform: translateY(-2px);
+            box-shadow: 0 18px 40px rgba(0,0,0,.12);
+            border-color: rgba(59,130,246,.22);
+        }
+
+        .task-title{
+            font-weight: 800;
+            letter-spacing: -.01em;
+        }
+        .text-strikethrough{
+            text-decoration: line-through;
+            color: var(--success);
+            opacity: .9;
+        }
+
+        .mini-btn{
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: color-mix(in srgb, var(--surface-strong) 70%, transparent);
+            color: var(--text);
+            transition: transform .15s ease, filter .15s ease;
+        }
+        .mini-btn:hover{ transform: translateY(-1px); filter: brightness(1.03); }
+
+        .mini-btn-danger{
+            border-radius: 12px;
+            border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border));
+            background: color-mix(in srgb, var(--danger) 12%, transparent);
+            color: var(--text);
+        }
+
+        .footer-note{
+            text-align:center;
+            margin-top: 14px;
+            color: var(--muted);
+            font-weight: 650;
+            font-size: .92rem;
+        }
+
+        /* ⭐ KEY FIX: Constrain center width + add "safe side padding" so it never overlaps */
+        .safe-center{
+            max-width: 840px;       /* was too wide before */
+            margin-left: auto;
+            margin-right: auto;
+
+            /* creates breathing room so background cards remain visible */
+            padding-left: 90px;
+            padding-right: 90px;
+        }
+        @media (max-width: 992px){
+            .safe-center{ padding-left: 0; padding-right: 0; }
+        }
+
+        @media (prefers-reduced-motion: reduce){
+            .page-bg::before, .grid-layer, .blob, .float-card { animation: none !important; }
+            .write-path{ animation:none !important; stroke-dashoffset: 0 !important; }
+            .progress-fill{ transition:none !important; }
+            .task-card{ animation:none !important; }
+        }
+    </style>
+</head>
+
+<body>
+<!-- Background -->
+<div class="page-bg" id="bg">
+    <div class="grid-layer"></div>
+    <div class="blob b1"></div>
+    <div class="blob b2"></div>
+    <div class="blob b3"></div>
+    <div class="blob b4"></div>
+    <div class="noise"></div>
+
+    <!-- Calendar -->
+    <div class="float-card cal-float parallax" data-depth="10">
+        <div class="float-head">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            <span class="float-title">CALENDAR</span>
+        </div>
+        <div class="float-body">
+            <div class="cal-top">
+                <div>
+                    <div class="cal-month" id="calMonth">Month</div>
+                    <div class="cal-meta" id="calMeta">Year</div>
+                </div>
+                <div class="badge-soft" id="calTodayLabel">Today</div>
+            </div>
+            <div class="cal-grid" id="calGrid"></div>
+        </div>
+    </div>
+
+    <!-- Girl -->
+    <div class="float-card girl-float parallax" data-depth="16">
+        <div class="float-head">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            <span class="float-title">STUDY</span>
+        </div>
+        <div class="girl-wrap">
+            <svg viewBox="0 0 900 440" width="100%" height="auto" role="img" aria-label="Cozy study illustration">
+                <defs>
+                    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0" stop-color="rgba(59,130,246,.18)"/>
+                        <stop offset="1" stop-color="rgba(6,182,212,.14)"/>
+                    </linearGradient>
+                    <linearGradient id="board" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0" stop-color="rgba(255,255,255,.70)"/>
+                        <stop offset="1" stop-color="rgba(255,255,255,.45)"/>
+                    </linearGradient>
+                </defs>
+
+                <rect x="0" y="0" width="900" height="440" fill="url(#sky)"/>
+
+                <circle cx="140" cy="90" r="120" fill="rgba(253,224,71,.14)"/>
+                <circle cx="140" cy="90" r="70" fill="rgba(253,224,71,.10)"/>
+
+                <rect x="480" y="90" width="360" height="235" rx="18" fill="url(#board)" stroke="rgba(15,23,42,.18)" stroke-width="3"/>
+                <rect x="505" y="115" width="310" height="185" rx="14" fill="rgba(15,23,42,.06)"/>
+
+                <g stroke="rgba(15,23,42,.30)" stroke-width="7" stroke-linecap="round">
+                    <line x1="545" y1="150" x2="785" y2="150"/>
+                    <line x1="545" y1="195" x2="760" y2="195"/>
+                    <line x1="545" y1="240" x2="800" y2="240"/>
+                </g>
+
+                <path class="write-path" d="M530 150 L555 172 L585 135" fill="none" stroke="rgba(34,197,94,.92)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+                <path class="write-path" d="M530 195 L555 217 L588 178" fill="none" stroke="rgba(34,197,94,.86)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" style="animation-delay:.35s"/>
+                <path class="write-path" d="M530 240 L555 262 L590 222" fill="none" stroke="rgba(34,197,94,.80)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" style="animation-delay:.7s"/>
+
+                <path d="M220 135
+                 C165 145 140 180 140 225
+                 C140 285 175 325 240 325
+                 C310 325 350 285 350 225
+                 C350 175 315 135 260 132
+                 C245 122 235 118 220 135Z"
+                      fill="rgba(15,23,42,.26)"/>
+
+                <ellipse cx="245" cy="220" rx="62" ry="58" fill="rgba(255,255,255,.68)" stroke="rgba(15,23,42,.16)" stroke-width="3"/>
+
+                <ellipse cx="223" cy="220" rx="8" ry="10" fill="rgba(15,23,42,.55)"/>
+                <ellipse cx="268" cy="220" rx="8" ry="10" fill="rgba(15,23,42,.55)"/>
+                <circle cx="220" cy="217" r="2.3" fill="rgba(255,255,255,.8)"/>
+                <circle cx="265" cy="217" r="2.3" fill="rgba(255,255,255,.8)"/>
+
+                <path d="M225 245 C240 258 258 258 273 245" fill="none" stroke="rgba(15,23,42,.35)" stroke-width="4" stroke-linecap="round"/>
+
+                <path d="M165 345
+                 C185 305 305 305 325 345
+                 L350 420 L140 420 Z"
+                      fill="rgba(255,255,255,.58)" stroke="rgba(15,23,42,.16)" stroke-width="3"/>
+
+                <path d="M208 315 C235 335 255 335 283 315
+                 C270 355 220 355 208 315Z"
+                      fill="rgba(59,130,246,.34)"/>
+
+                <path d="M320 350 C375 330 430 285 480 250" fill="none" stroke="rgba(15,23,42,.22)" stroke-width="18" stroke-linecap="round"/>
+
+                <rect x="468" y="238" width="26" height="52" rx="8" fill="rgba(59,130,246,.55)"/>
+                <rect x="470" y="280" width="22" height="12" rx="5" fill="rgba(15,23,42,.25)"/>
+
+                <rect x="70" y="410" width="760" height="16" rx="8" fill="rgba(15,23,42,.10)"/>
+            </svg>
+        </div>
+    </div>
+
+    <!-- Week -->
+    <div class="float-card week-float parallax" data-depth="12">
+        <div class="float-head">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            <span class="float-title">WEEK</span>
+        </div>
+        <div class="float-body">
+            <div class="week-row" id="weekRow"></div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-label">
+                <span id="progressLeft">0 done</span>
+                <span id="progressRight">0 total</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- App -->
+<div class="app-wrap">
+    <div class="container py-5 safe-center">
+        <div class="row justify-content-center">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-start align-items-md-center mb-3 gap-3">
+                    <div>
+                        <h1 class="brand">ToDo Madhurya's Application</h1>
+                        <div class="subtitle">Make tiny progress every day ✨</div>
+                    </div>
+
+                    <button type="button" class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                        <span class="toggle-dot"></span>
+                        <span id="themeLabel" style="font-weight:900;">Dark mode</span>
+                    </button>
+                </div>
+
+                <div class="glass-card p-3 p-md-4">
+                    <!-- ✅ DO NOT CHANGE: endpoint stays "/" -->
+                    <form action="/" method="post" class="row g-2 align-items-center">
+                        <div class="col-md-10">
+                            <input class="form-control form-control-lg task-input"
+                                   type="text" name="title"
+                                   placeholder="Add a new task... " required>
+                        </div>
+                        <div class="col-md-2 d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg btn-fancy">Add</button>
+                        </div>
+                    </form>
+
+                    <div class="badge-line">
+                        <span class="badge-soft">Your tasks</span>
+                        <span class="badge-soft">Tip: Toggle to mark done ✅</span>
+                    </div>
+
+                    <div class="mt-3">
+                        <th:block th:each="task : ${tasks}">
+                            <div class="task-card mb-2">
+                                <div class="p-3 d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span style="font-size:1.2rem;">🗓️</span>
+
+                                        <span class="task-title"
+                                              th:attr="data-completed=${task.completed}"
+                                              th:classappend="${task.completed} ? ' text-strikethrough' : ''"
+                                              th:text="${task.title}">task title</span>
+                                    </div>
+
+                                    <div class="d-flex gap-2">
+                                        <!-- ✅ DO NOT CHANGE: endpoints -->
+                                        <a th:href="@{/{id}/toggle(id=${task.id})}" class="btn mini-btn btn-sm">Toggle</a>
+                                        <a th:href="@{/{id}/delete(id=${task.id})}" class="btn mini-btn-danger btn-sm">Delete</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </th:block>
+                    </div>
+                </div>
+
+                <div class="footer-note">Built with Spring Boot + Thymeleaf + MySQL</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ---------- Theme toggle ----------
+    const btn = document.getElementById('themeToggle');
+    const label = document.getElementById('themeLabel');
+
+    const saved = localStorage.getItem('todo_theme');
+    if (saved === 'dark') document.body.classList.add('dark');
+
+    function updateThemeLabel(){
+        label.textContent = document.body.classList.contains('dark') ? 'Light mode' : 'Dark mode';
+    }
+    updateThemeLabel();
+
+    btn.addEventListener('click', () => {
+        document.body.classList.toggle('dark');
+        const isDark = document.body.classList.contains('dark');
+        localStorage.setItem('todo_theme', isDark ? 'dark' : 'light');
+        updateThemeLabel();
+    });
+
+    // ---------- Accurate Calendar (current month, Monday-start) ----------
+    const calGrid = document.getElementById('calGrid');
+    const calMonth = document.getElementById('calMonth');
+    const calMeta = document.getElementById('calMeta');
+    const calTodayLabel = document.getElementById('calTodayLabel');
+
+    function pad(n){ return String(n).padStart(2,'0'); }
+    const monIndex = (jsDay) => (jsDay + 6) % 7;
+
+    function buildCalendar(date){
+        const y = date.getFullYear();
+        const m = date.getMonth();
+        const today = new Date();
+        const isThisMonth = (today.getFullYear() === y && today.getMonth() === m);
+
+        calMonth.textContent = date.toLocaleString(undefined, { month: 'long' });
+        calMeta.textContent = y;
+        calTodayLabel.textContent = isThisMonth ? `Today: ${pad(today.getDate())}` : `Today`;
+
+        const first = new Date(y, m, 1);
+        const last = new Date(y, m + 1, 0);
+        const daysInMonth = last.getDate();
+        const startOffset = monIndex(first.getDay());
+        const prevLast = new Date(y, m, 0).getDate();
+
+        calGrid.innerHTML = '';
+        ['Mo','Tu','We','Th','Fr','Sa','Su'].forEach(d=>{
+            const el = document.createElement('div');
+            el.className = 'dow';
+            el.textContent = d;
+            calGrid.appendChild(el);
+        });
+
+        for(let i=0;i<42;i++){
+            const dayNum = i - startOffset + 1;
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+
+            if(dayNum <= 0){
+                cell.textContent = (prevLast + dayNum);
+                cell.classList.add('muted');
+            }else if(dayNum > daysInMonth){
+                cell.textContent = (dayNum - daysInMonth);
+                cell.classList.add('muted');
+            }else{
+                cell.textContent = dayNum;
+                if(isThisMonth && dayNum === today.getDate()) cell.classList.add('today');
+            }
+            calGrid.appendChild(cell);
+        }
+    }
+    buildCalendar(new Date());
+
+    // ---------- Week + progress ----------
+    const weekRow = document.getElementById('weekRow');
+    const progressFill = document.getElementById('progressFill');
+    const progressLeft = document.getElementById('progressLeft');
+    const progressRight = document.getElementById('progressRight');
+
+    function startOfWeekMonday(d){
+        const dt = new Date(d);
+        const day = (dt.getDay() + 6) % 7;
+        dt.setDate(dt.getDate() - day);
+        dt.setHours(0,0,0,0);
+        return dt;
+    }
+
+    function buildWeek(date){
+        weekRow.innerHTML = '';
+        const base = startOfWeekMonday(date);
+        const today = new Date();
+        const letters = ['M','T','W','T','F','S','S'];
+
+        for(let i=0;i<7;i++){
+            const d = new Date(base);
+            d.setDate(base.getDate() + i);
+
+            const el = document.createElement('div');
+            el.className = 'wday';
+            el.title = d.toDateString();
+            el.textContent = letters[i];
+
+            if(d.getFullYear()===today.getFullYear() && d.getMonth()===today.getMonth() && d.getDate()===today.getDate()){
+                el.classList.add('active');
+            }
+            weekRow.appendChild(el);
+        }
+    }
+
+    function updateProgress(){
+        const nodes = document.querySelectorAll('[data-completed]');
+        const total = nodes.length;
+        let done = 0;
+        nodes.forEach(n => { if(String(n.getAttribute('data-completed')) === 'true') done++; });
+
+        progressLeft.textContent = `${done} done`;
+        progressRight.textContent = `${total} total`;
+
+        const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+        progressFill.style.width = `${pct}%`;
+    }
+
+    buildWeek(new Date());
+    updateProgress();
+
+    // ---------- Parallax (only affects background cards) ----------
+    const parallaxEls = document.querySelectorAll('.parallax');
+    let raf = null;
+
+    function onMove(e){
+        const cx = window.innerWidth / 2;
+        const cy = window.innerHeight / 2;
+        const dx = (e.clientX - cx) / cx;
+        const dy = (e.clientY - cy) / cy;
+
+        if (raf) cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(() => {
+            parallaxEls.forEach(el => {
+                const depth = Number(el.getAttribute('data-depth') || 10);
+                const x = dx * depth;
+                const y = dy * depth;
+                el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+            });
+        });
+    }
+
+    if (window.matchMedia('(pointer:fine)').matches) {
+        window.addEventListener('mousemove', onMove);
+    }
+</script>
+</body>
+</html>
